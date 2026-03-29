@@ -1,8 +1,8 @@
 {
   "hooks": {
-    "BeforeTool": [
+    "PreToolUse": [
       {
-        "matcher": "run_shell_command",
+        "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
