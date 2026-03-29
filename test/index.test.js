@@ -331,13 +331,13 @@ describe('hook binary', () => {
 
   it('exits 2 and prints message when wrong PM is used (Claude Code)', () => {
     ({ root: tmp, cleanup } = makeTempProject({ packageManager: 'pnpm@9.0.0' }));
-    const { exitCode, stdout } = runHook(
+    const { exitCode, stderr } = runHook(
       { tool_name: 'Bash', tool_input: { command: 'npm install lodash' } },
       { cwd: tmp },
     );
     assert.equal(exitCode, 2);
-    assert.ok(stdout.includes('pnpm'));
-    assert.ok(stdout.includes('npm'));
+    assert.ok(stderr.includes('pnpm'));
+    assert.ok(stderr.includes('npm'));
   });
 
   it('exits 0 when package.json has no packageManager field (Claude Code)', () => {
@@ -362,46 +362,87 @@ describe('hook binary', () => {
 
   it('exits 2 when run_shell_command uses wrong PM (Gemini CLI)', () => {
     ({ root: tmp, cleanup } = makeTempProject({ packageManager: 'yarn@4.1.0' }));
-    const { exitCode, stdout } = runHook(
+    const { exitCode, stderr } = runHook(
       { tool_name: 'run_shell_command', tool_input: { command: 'pnpm install' } },
       { cwd: tmp },
     );
     assert.equal(exitCode, 2);
-    assert.ok(stdout.includes('yarn'));
+    assert.ok(stderr.includes('yarn'));
   });
 
   // ── OpenAI Codex CLI format ───────────────────────────────────────────────
+  // Codex uses { tool_name, tool_input } like Claude Code (not OpenAI chat format)
 
-  it('exits 0 when Codex shell function uses correct PM', () => {
+  it('exits 0 when Codex Bash tool uses correct PM', () => {
     ({ root: tmp, cleanup } = makeTempProject({ packageManager: 'bun@1.0.0' }));
     const { exitCode } = runHook(
-      {
-        type: 'function',
-        function: { name: 'shell', arguments: { command: 'bun install' } },
-      },
+      { tool_name: 'Bash', tool_input: { command: 'bun install' } },
       { cwd: tmp },
     );
     assert.equal(exitCode, 0);
   });
 
-  it('exits 2 when Codex shell function uses wrong PM', () => {
+  it('exits 2 when Codex Bash tool uses wrong PM', () => {
     ({ root: tmp, cleanup } = makeTempProject({ packageManager: 'bun@1.0.0' }));
-    const { exitCode, stdout } = runHook(
-      {
-        type: 'function',
-        function: { name: 'shell', arguments: { command: 'npm ci' } },
-      },
+    const { exitCode, stderr } = runHook(
+      { tool_name: 'Bash', tool_input: { command: 'npm ci' } },
       { cwd: tmp },
     );
     assert.equal(exitCode, 2);
-    assert.ok(stdout.includes('bun'));
+    assert.ok(stderr.includes('bun'));
   });
 
-  it('exits 0 for Codex non-shell function calls', () => {
+  it('exits 0 for Codex non-Bash tool calls', () => {
     ({ root: tmp, cleanup } = makeTempProject({ packageManager: 'pnpm@9.0.0' }));
     const { exitCode } = runHook(
-      { type: 'function', function: { name: 'read_file', arguments: { path: '/tmp/x' } } },
+      { tool_name: 'read_file', tool_input: { path: '/tmp/x' } },
       { cwd: tmp },
+    );
+    assert.equal(exitCode, 0);
+  });
+
+  // ── GitHub Copilot CLI format ─────────────────────────────────────────────
+
+  it('exits 0 when Copilot CLI bash tool uses correct PM', (t) => {
+    const { root, cleanup } = makeTempProject({ packageManager: 'bun@1.0.0' });
+    t.after(cleanup);
+    const { exitCode } = runHook(
+      { toolName: 'bash', toolArgs: JSON.stringify({ command: 'bun install' }) },
+      { cwd: root },
+    );
+    assert.equal(exitCode, 0);
+  });
+
+  it('exits 0 and writes deny JSON to stdout when Copilot CLI uses wrong PM', (t) => {
+    const { root, cleanup } = makeTempProject({ packageManager: 'bun@1.0.0' });
+    t.after(cleanup);
+    const { exitCode, stdout } = runHook(
+      { toolName: 'bash', toolArgs: JSON.stringify({ command: 'npm install' }) },
+      { cwd: root },
+    );
+    assert.equal(exitCode, 0);
+    const response = JSON.parse(stdout);
+    assert.equal(response.permissionDecision, 'deny');
+    assert.ok(typeof response.permissionDecisionReason === 'string');
+    assert.ok(response.permissionDecisionReason.includes('bun'));
+  });
+
+  it('exits 0 for Copilot CLI non-bash tools', (t) => {
+    const { root, cleanup } = makeTempProject({ packageManager: 'pnpm@9.0.0' });
+    t.after(cleanup);
+    const { exitCode } = runHook(
+      { toolName: 'view', toolArgs: JSON.stringify({ path: '/tmp/x' }) },
+      { cwd: root },
+    );
+    assert.equal(exitCode, 0);
+  });
+
+  it('handles malformed toolArgs JSON gracefully (Copilot CLI)', (t) => {
+    const { root, cleanup } = makeTempProject({ packageManager: 'pnpm@9.0.0' });
+    t.after(cleanup);
+    const { exitCode } = runHook(
+      { toolName: 'bash', toolArgs: 'not json' },
+      { cwd: root },
     );
     assert.equal(exitCode, 0);
   });

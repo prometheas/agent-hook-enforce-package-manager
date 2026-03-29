@@ -12,8 +12,9 @@
  * one declared in package.json.
  *
  * Exit codes:
- *   0  – allow the tool use to proceed
- *   2  – block the tool use; stdout message is surfaced to the agent as context
+ *   0  – allow the tool use to proceed (also used by Copilot CLI denials)
+ *   2  – block the tool use (Claude Code / Gemini CLI / Codex CLI);
+ *         stderr message is surfaced to the agent as context
  */
 
 import { checkCommand } from '../src/index.js';
@@ -31,75 +32,90 @@ async function readStdin() {
 }
 
 /**
- * Extract the shell command from a parsed hook payload.
+ * Extract shell command and agent format from hook payload.
  *
- * Supported host formats:
+ * Supported formats:
+ *  Claude Code / Gemini CLI / Codex CLI (snake_case):
+ *    { tool_name: "Bash"|"run_shell_command", tool_input: { command } }
  *
- *  Claude Code / Gemini CLI (PreToolUse):
- *    { tool_name: "Bash" | "run_shell_command", tool_input: { command: "…" } }
+ *  GitHub Copilot CLI (camelCase; toolArgs is a JSON string):
+ *    { toolName: "bash", toolArgs: '{"command":"..."}' }
  *
- *  OpenAI Codex CLI (exec hook):
- *    { type: "function", function: { name: "shell", arguments: { command: "…" } } }
- *
- * @param {unknown} payload  Parsed JSON from stdin.
- * @returns {string|null}    The command string, or null if not found.
+ * @param {unknown} payload
+ * @returns {{ command: string, format: 'standard'|'copilot' } | null}
  */
 function extractCommand(payload) {
   if (!payload || typeof payload !== 'object') return null;
 
-  // ── Claude Code & Gemini CLI ────────────────────────────────────────────
-  // { tool_name: "Bash", tool_input: { command: "…" } }
+  // ── Claude Code, Gemini CLI, Codex CLI ──────────────────────────────────
   const toolName = payload.tool_name;
   if (
     typeof toolName === 'string' &&
     /^(bash|run_shell_command)$/i.test(toolName) &&
     payload.tool_input?.command
   ) {
-    return String(payload.tool_input.command);
+    return { command: String(payload.tool_input.command), format: 'standard' };
   }
 
-  // ── OpenAI Codex CLI ────────────────────────────────────────────────────
-  // { type: "function", function: { name: "shell", arguments: { command: "…" } } }
+  // ── GitHub Copilot CLI ──────────────────────────────────────────────────
   if (
-    payload.type === 'function' &&
-    payload.function?.name === 'shell' &&
-    payload.function?.arguments?.command
+    typeof payload.toolName === 'string' &&
+    /^bash$/i.test(payload.toolName) &&
+    typeof payload.toolArgs === 'string'
   ) {
-    return String(payload.function.arguments.command);
+    let args;
+    try {
+      args = JSON.parse(payload.toolArgs);
+    } catch {
+      return null;
+    }
+    if (args?.command) {
+      return { command: String(args.command), format: 'copilot' };
+    }
   }
 
   return null;
 }
 
 async function main() {
-  const raw = await readStdin();
-
-  if (!raw.trim()) {
-    process.exit(0);
+  // Setup subcommand — lazy-loaded so hook startup stays lean
+  if (process.argv[2] === 'setup') {
+    const { runSetup } = await import('../src/setup/index.js');
+    await runSetup(process.argv.slice(3));
+    return;
   }
+
+  const raw = await readStdin();
+  if (!raw.trim()) process.exit(0);
 
   let payload;
   try {
     payload = JSON.parse(raw);
   } catch {
-    // Unparseable input – don't block, just let the tool use proceed.
     process.exit(0);
   }
 
-  const command = extractCommand(payload);
+  const extracted = extractCommand(payload);
+  if (!extracted) process.exit(0);
 
-  if (!command) {
-    // Not a shell-execution tool call we recognise – allow it.
-    process.exit(0);
-  }
-
+  const { command, format } = extracted;
   const result = checkCommand(command, process.cwd());
 
   if (result.blocked) {
-    process.stdout.write(result.message + '\n');
-    // Exit 2 surfaces the message as feedback to the agent so it can correct
-    // itself without interrupting the user.
-    process.exit(2);
+    if (format === 'copilot') {
+      // Copilot CLI: deny via stdout JSON, exit 0
+      process.stdout.write(
+        JSON.stringify({
+          permissionDecision: 'deny',
+          permissionDecisionReason: result.message,
+        }) + '\n',
+      );
+      process.exit(0);
+    } else {
+      // Claude Code, Gemini CLI, Codex CLI: deny via stderr, exit 2
+      process.stderr.write(result.message + '\n');
+      process.exit(2);
+    }
   }
 
   process.exit(0);
