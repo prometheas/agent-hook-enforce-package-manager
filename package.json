@@ -1,0 +1,36 @@
+{
+  "name": "claude-hook-enforce-package-manager",
+  "version": "1.0.0",
+  "description": "AI coding agent PreToolUse hook that enforces the package manager defined in package.json",
+  "type": "module",
+  "keywords": [
+    "claude",
+    "claude-code",
+    "gemini-cli",
+    "hook",
+    "package-manager",
+    "corepack",
+    "npm",
+    "yarn",
+    "pnpm",
+    "bun"
+  ],
+  "author": "John Lianoglou",
+  "license": "MIT",
+  "bin": {
+    "enforce-package-manager": "./bin/enforce-package-manager.js"
+  },
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "bin/",
+    "src/"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test test/**/*.test.js"
+  }
+}
