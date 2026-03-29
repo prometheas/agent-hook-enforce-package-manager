@@ -17,7 +17,7 @@ Supported package managers: **npm / npx**, **yarn**, **pnpm / pnpx**,
 **bun / bunx**, **deno**.
 
 Supported AI coding agents: **Claude Code**, **Gemini CLI**,
-**OpenAI Codex CLI**.
+**OpenAI Codex CLI**, **GitHub Copilot CLI**.
 
 ---
 
@@ -47,13 +47,54 @@ bun add --dev claude-hook-enforce-package-manager
 }
 ```
 
-### 3. Configure your AI coding agent (see sections below)
+### 3. Run setup to configure your AI coding agents
+
+```bash
+npx enforce-package-manager setup
+```
+
+This writes (or merges into) the correct hook config files for each agent you
+use, then prints a `git add` + `git commit` command so every contributor
+inherits the hook automatically.
+
+Or run it non-interactively:
+
+```bash
+# auto-detect which agents are installed
+npx enforce-package-manager setup --yes
+
+# configure specific agents only
+npx enforce-package-manager setup --agents claude,gemini --yes
+```
 
 ---
 
-## Claude Code
+## Setup CLI reference
 
-Add (or merge) the following into your project's `.claude/settings.json`:
+```
+Usage: enforce-package-manager setup [options]
+
+Options:
+  --agents <list>   Comma-separated list of agent IDs to configure.
+                    Valid IDs: claude, gemini, codex, copilot
+  --yes, -y         Non-interactive: skip prompts and auto-detect agents
+```
+
+The setup command:
+- Detects which agent CLIs are on your PATH and pre-selects them
+- Writes/merges hook config files — never overwrites unrelated entries
+- Uses `./node_modules/.bin/enforce-package-manager` as the hook path
+  (always the local devDep — no global install required)
+- Prints an install advisory if the package is not yet in `devDependencies`
+- Idempotent — running it twice does not create duplicate entries
+
+---
+
+## Manual configuration
+
+If you prefer to configure agents manually, the generated files look like this:
+
+### Claude Code — `.claude/settings.json`
 
 ```json
 {
@@ -74,20 +115,16 @@ Add (or merge) the following into your project's `.claude/settings.json`:
 ```
 
 > **How it works** – Claude Code pipes a JSON payload describing the Bash
-> tool call to the hook's stdin.  The hook exits `0` to allow or `2` to block
-> (exit code `2` surfaces the error message back to the agent as context so it
+> tool call to the hook's stdin. The hook exits `0` to allow or `2` to block
+> (exit code `2` surfaces the error message back to the agent via stderr so it
 > can self-correct).
 
----
-
-## Gemini CLI
-
-Add (or merge) the following into your project's `.gemini/settings.json`:
+### Gemini CLI — `.gemini/settings.json`
 
 ```json
 {
   "hooks": {
-    "PreToolUse": [
+    "BeforeTool": [
       {
         "matcher": "run_shell_command",
         "hooks": [
@@ -102,39 +139,82 @@ Add (or merge) the following into your project's `.gemini/settings.json`:
 }
 ```
 
----
+> **Note**: Gemini CLI uses the `BeforeTool` event (not `PreToolUse`) and the
+> tool name `run_shell_command` (not `Bash`).
 
-## OpenAI Codex CLI
+### OpenAI Codex CLI — `.codex/hooks.json`
 
-The hook also handles Codex CLI's function-call format automatically.  Add
-the hook command to your Codex CLI configuration:
-
-```toml
-# ~/.codex/config.toml  (example – refer to Codex CLI docs for exact format)
-[hooks]
-pre_exec = "./node_modules/.bin/enforce-package-manager"
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./node_modules/.bin/enforce-package-manager"
+          }
+        ]
+      }
+    ]
+  }
+}
 ```
 
-The hook recognises Codex's `{ type: "function", function: { name: "shell", … } }`
-payload and enforces the same rules.
+> **Note**: Codex CLI hooks require `features.codex_hooks = true` in
+> `~/.codex/config.toml` (beta feature as of 2026-03-28). Codex uses the same
+> `{ tool_name, tool_input }` payload format as Claude Code.
+
+### GitHub Copilot CLI — `hooks.json` (project root)
+
+```json
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "type": "command",
+        "bash": "./node_modules/.bin/enforce-package-manager"
+      }
+    ]
+  }
+}
+```
+
+> **Note**: Copilot CLI loads `hooks.json` from the current working directory.
+> The block response is returned as JSON on stdout with exit 0 (Copilot's deny
+> protocol differs from the other agents).
+>
+> **Warning**: check for filename conflicts before committing `hooks.json` into
+> an existing repository.
 
 ---
 
 ## How the hook payload is parsed
 
-The hook accepts **three JSON payload shapes** on stdin, covering the known
-AI coding agent formats:
+The hook accepts **two JSON payload shapes** on stdin, covering all four
+supported agents:
 
 ```jsonc
-// Claude Code / Gemini CLI
+// Claude Code / Gemini CLI / OpenAI Codex CLI  (snake_case)
 { "tool_name": "Bash",               "tool_input": { "command": "…" } }
 { "tool_name": "run_shell_command",  "tool_input": { "command": "…" } }
 
-// OpenAI Codex CLI
-{ "type": "function", "function": { "name": "shell", "arguments": { "command": "…" } } }
+// GitHub Copilot CLI  (camelCase; toolArgs is a JSON string — double-parse required)
+{ "toolName": "bash", "toolArgs": "{\"command\":\"…\"}" }
 ```
 
-Any other payload is ignored and the hook exits `0`.
+Any other payload shape is ignored and the hook exits `0`.
+
+### Block response by agent
+
+| Agent | Block mechanism |
+|-------|----------------|
+| Claude Code | Exit `2`, message on **stderr** |
+| Gemini CLI | Exit `2`, message on **stderr** |
+| Codex CLI | Exit `2`, message on **stderr** |
+| Copilot CLI | Exit `0`, `{ "permissionDecision": "deny", "permissionDecisionReason": "…" }` on **stdout** |
 
 ---
 
