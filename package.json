@@ -1,5 +1,5 @@
 {
-  "name": "claude-hook-enforce-package-manager",
+  "name": "agent-hook-enforce-package-manager",
   "version": "1.0.0",
   "description": "AI coding agent PreToolUse hook that enforces the package manager defined in package.json",
   "type": "module",

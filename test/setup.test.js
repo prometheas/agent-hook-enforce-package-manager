@@ -104,7 +104,7 @@ describe('setup subcommand', () => {
     t.after(cleanup);
     fs.writeFileSync(
       path.join(root, 'package.json'),
-      JSON.stringify({ name: 'test', devDependencies: { 'claude-hook-enforce-package-manager': '*' } }),
+      JSON.stringify({ name: 'test', devDependencies: { 'agent-hook-enforce-package-manager': '*' } }),
     );
     const { stdout } = runSetup(['--agents', 'claude', '--yes'], { cwd: root });
     assert.ok(!stdout.includes('install --save-dev'));

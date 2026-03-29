@@ -4,7 +4,7 @@ import { readJsonFile, writeJsonFile, mergeHookConfig, detectInstalledAgents } f
 import { confirm, multiSelect } from './prompts.js';
 
 const LOCAL_BIN = './node_modules/.bin/enforce-package-manager';
-const PACKAGE_NAME = 'claude-hook-enforce-package-manager';
+const PACKAGE_NAME = 'agent-hook-enforce-package-manager';
 
 /** Parse CLI args into an options object. */
 function parseArgs(args) {

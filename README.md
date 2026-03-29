@@ -27,16 +27,16 @@ Supported AI coding agents: **Claude Code**, **Gemini CLI**,
 
 ```bash
 # npm
-npm install --save-dev claude-hook-enforce-package-manager
+npm install --save-dev agent-hook-enforce-package-manager
 
 # yarn
-yarn add --dev claude-hook-enforce-package-manager
+yarn add --dev agent-hook-enforce-package-manager
 
 # pnpm
-pnpm add --save-dev claude-hook-enforce-package-manager
+pnpm add --save-dev agent-hook-enforce-package-manager
 
 # bun
-bun add --dev claude-hook-enforce-package-manager
+bun add --dev agent-hook-enforce-package-manager
 ```
 
 ### 2. Declare your package manager in `package.json`
@@ -244,7 +244,7 @@ import {
   findPackageManager,
   detectPackageManagerInCommand,
   checkCommand,
-} from 'claude-hook-enforce-package-manager';
+} from 'agent-hook-enforce-package-manager';
 
 const projectPM = findPackageManager('/path/to/project');
 // → 'pnpm'  (or null if not declared)
@@ -261,8 +261,8 @@ const result = checkCommand('npm install lodash', '/path/to/project');
 ## Contributing
 
 ```bash
-git clone https://github.com/prometheas/claude-hook-enforce-package-manager.git
-cd claude-hook-enforce-package-manager
+git clone https://github.com/prometheas/agent-hook-enforce-package-manager.git
+cd agent-hook-enforce-package-manager
 npm install
 npm test
 ```
