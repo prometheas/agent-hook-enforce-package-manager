@@ -1,0 +1,11 @@
+{
+  "name": "enforce-package-manager",
+  "version": "1.0.0",
+  "description": "Enforce the corepack packageManager field — blocks AI coding agents from using the wrong package manager",
+  "author": {
+    "name": "John Lianoglou"
+  },
+  "license": "MIT",
+  "keywords": ["package-manager", "corepack", "hook", "claude-code"],
+  "hooks": "hooks"
+}
