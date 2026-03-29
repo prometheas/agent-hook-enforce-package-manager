@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "type": "command",
+        "bash": "./node_modules/.bin/enforce-package-manager"
+      }
+    ]
+  }
+}
