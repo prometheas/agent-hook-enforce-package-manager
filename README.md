@@ -13,7 +13,7 @@ inspects the nearest `package.json` for a
 | Detected package manager **matches** the declared one | ✅ Allow |
 | Detected package manager **does not match** | ❌ Block with a clear error message |
 
-Supported package managers: **npm / npx**, **yarn**, **pnpm / pnpx**,
+Supported package managers: **npm / npx**, **yarn**, **pnpm**,
 **bun / bunx**, **deno**.
 
 Supported AI coding agents: **Claude Code**, **Gemini CLI**,

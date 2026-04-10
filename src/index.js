@@ -14,7 +14,6 @@ export const CLI_TO_PACKAGE_MANAGER = {
   npx: 'npm',
   yarn: 'yarn',
   pnpm: 'pnpm',
-  pnpx: 'pnpm',
   bun: 'bun',
   bunx: 'bun',
   deno: 'deno',

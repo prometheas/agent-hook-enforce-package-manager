@@ -76,9 +76,8 @@ describe('CLI_TO_PACKAGE_MANAGER', () => {
     assert.equal(CLI_TO_PACKAGE_MANAGER.yarn, 'yarn');
   });
 
-  it('maps pnpm and pnpx to pnpm', () => {
+  it('maps pnpm to pnpm', () => {
     assert.equal(CLI_TO_PACKAGE_MANAGER.pnpm, 'pnpm');
-    assert.equal(CLI_TO_PACKAGE_MANAGER.pnpx, 'pnpm');
   });
 
   it('maps bun and bunx to bun', () => {
@@ -179,7 +178,6 @@ describe('detectPackageManagerInCommand', () => {
     ['npx', 'npx create-react-app my-app', 'npm'],
     ['yarn add', 'yarn add lodash', 'yarn'],
     ['pnpm install', 'pnpm install', 'pnpm'],
-    ['pnpx', 'pnpx create-react-app', 'pnpm'],
     ['bun install', 'bun install', 'bun'],
     ['bunx', 'bunx create-react-app', 'bun'],
     ['deno', 'deno install lodash', 'deno'],
